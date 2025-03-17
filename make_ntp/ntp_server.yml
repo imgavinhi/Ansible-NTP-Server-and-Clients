@@ -1,0 +1,65 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  - name: Install Chronyd
+    apt:
+      name: chrony
+      state: latest
+      update_cache: no
+
+- hosts: ntp_server
+  become: yes
+  tasks:
+  - name: deploy chrony.conf template
+    template:
+      src: /home/ansible/chrony.conf.j2
+      dest: /etc/chrony.conf
+      owner: root
+      group: root
+      mode: 0644
+      backup: yes
+
+  - name: restart chronyd
+    service:
+      name: chronyd
+      state: restarted
+
+  - name: Wait for Chrony to fully initialize
+    wait_for:
+      timeout: 10  # Adjust this if needed
+
+  - name: Check Chrony Sources
+    shell: chronyc sources
+    register: chrony_output_s
+    changed_when: false
+    become: yes
+
+  - name: Display Chrony Sources Output
+    debug:
+      msg: "{{ chrony_output_s.stdout_lines }}"
+
+- hosts: ntp_client
+  become: yes
+  tasks:
+    - name: edit client local sources
+      shell: udo echo 'server 192.168.47.100 iburst' | sudo tee /etc/chrony/sources.d/local-ntp-server.sources
+    
+    - name: restart client chronyd
+      service:
+        name: chronyd
+        state: restarted
+
+    - name: wait for Chrony to fully initialize on client
+      wait_for:
+        timeout: 10
+
+    - name: Check client Chrony Sources to confirm it's the Server
+      shell: chronyc sources
+      register: chrony_output_cl
+      changed_when: false
+      become: yes
+
+    - name: Display client Chrony Sources Output
+      debug:
+        msg: "{{ chrony_output_cl.stdout_lines }}"
