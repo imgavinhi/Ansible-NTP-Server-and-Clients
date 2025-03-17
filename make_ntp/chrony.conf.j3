@@ -1,0 +1,11 @@
+server 192.168.47.100 iburst
+
+driftfile /var/lib/chrony/drift
+
+makestep 1.0 3
+
+rtcsync
+
+leapsectz right/UTC
+
+logdir /var/log/chrony
